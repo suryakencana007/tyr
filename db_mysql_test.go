@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"github.com/suryakencana007/mimir"
 )
 
 const (
@@ -183,17 +185,17 @@ func (s *ConnMYSuite) TestWithTransaction() {
 	}
 	query := `INSERT INTO users (id, name) VALUES (?, ?) RETURNING id`
 	err := s.DB.WithTransaction(ctx, func(ctxSpan context.Context, tx *sql.Tx) error {
-		_, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
-		//suki.Info("WithTransaction",
-		//	suki.Field("Affected", affected),
-		//)
+		affected, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
+		mimir.Info("WithTransaction",
+			mimir.Field("Affected", affected),
+		)
 		if err != nil {
 			return err
 		}
-		_, err = s.DB.TxExecContextWithID(ctxSpan, tx, query, args...)
-		//suki.Info("WithTransaction",
-		//	suki.Field("LastInsertID", ids),
-		//)
+		ids, err := s.DB.TxExecContextWithID(ctxSpan, tx, query, args...)
+		mimir.Info("WithTransaction",
+			mimir.Field("LastInsertID", ids),
+		)
 		if err != nil {
 			return err
 		}
@@ -211,10 +213,10 @@ func (s *ConnMYSuite) TestWithTransactionFail() {
 	}
 	query := `INSERT INTO users (id, name) VALUES (?, $2)`
 	err := s.DB.WithTransaction(ctx, func(ctxSpan context.Context, tx *sql.Tx) error {
-		_, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
-		//suki.Info("WithTransaction",
-		//	suki.Field("Affected", affected),
-		//)
+		affected, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
+		mimir.Info("WithTransaction",
+			mimir.Field("Affected", affected),
+		)
 		if err != nil {
 			return err
 		}
@@ -249,8 +251,7 @@ func NewPoolMY(c ConnectionSuite) (err error) {
 	if err != nil {
 		return fmt.Errorf("%v", err.Error())
 	}
-	//err = c.GetResource().Expire(10)
-	//assert.NoError(t, err)
+
 	purge := func() error {
 		return c.GetPool().Purge(c.GetResource())
 	}
@@ -289,21 +290,21 @@ func NewPoolMY(c ConnectionSuite) (err error) {
 		return fmt.Errorf("check connection %v", errPool.Error())
 	}
 
-	//tracer, closeTracer, err := suki.Tracer("store_test", "1.3.0", suki.With())
-	//if err != nil {
-	//	suki.Errorf("tracing is disconnected: %s", err)
-	//}
+	tracer, closeTracer, err := mimir.Tracer("store_test", "1.3.0", mimir.With())
+	if err != nil {
+		mimir.Errorf("tracing is disconnected: %s", err)
+	}
 
-	//c.SetCloseTracer(closeTracer)
+	c.SetCloseTracer(closeTracer)
 
-	//opentracing.SetGlobalTracer(tracer)
+	opentracing.SetGlobalTracer(tracer)
 
 	c.SetContext(context.Background())
-	//
-	//serverSpan := opentracing.StartSpan("Pool Testing Mysql")
-	//defer serverSpan.Finish()
-	//
-	//c.SetContext(opentracing.ContextWithSpan(c.GetContext(), serverSpan))
+
+	serverSpan := opentracing.StartSpan("Pool Testing Mysql")
+	defer serverSpan.Finish()
+
+	c.SetContext(opentracing.ContextWithSpan(c.GetContext(), serverSpan))
 
 	ctx, cancel := c.GetDB().BeginCtx(c.GetContext())
 	defer cancel()

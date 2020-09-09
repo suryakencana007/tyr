@@ -13,6 +13,7 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"github.com/suryakencana007/mimir"
 )
 
 const (
@@ -189,17 +190,17 @@ func (s *ConnPGSuite) TestWithTransaction() {
 	}
 	query := `INSERT INTO users (id, name) VALUES ($1, $2) RETURNING id`
 	err := s.DB.WithTransaction(ctx, func(ctxSpan context.Context, tx *sql.Tx) error {
-		_, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
-		//suki.Info("WithTransaction",
-		//	suki.Field("Affected", affected),
-		//)
+		affected, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
+		mimir.Info("WithTransaction",
+			mimir.Field("Affected", affected),
+		)
 		if err != nil {
 			return err
 		}
-		_, err = s.DB.TxExecContextWithID(ctxSpan, tx, query, args...)
-		//suki.Info("WithTransaction",
-		//	suki.Field("LastInsertID", ids),
-		//)
+		ids, err := s.DB.TxExecContextWithID(ctxSpan, tx, query, args...)
+		mimir.Info("WithTransaction",
+			mimir.Field("LastInsertID", ids),
+		)
 		if err != nil {
 			return err
 		}
@@ -217,10 +218,10 @@ func (s *ConnPGSuite) TestWithTransactionFail() {
 	}
 	query := `INSERT INTO users (id, name) VALUES (?, $2)`
 	err := s.DB.WithTransaction(ctx, func(ctxSpan context.Context, tx *sql.Tx) error {
-		_, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
-		//suki.Info("WithTransaction",
-		//	suki.Field("Affected", affected),
-		//)
+		affected, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
+		mimir.Info("WithTransaction",
+			mimir.Field("Affected", affected),
+		)
 		if err != nil {
 			return err
 		}
@@ -235,10 +236,10 @@ func (s *ConnPGSuite) TestContextTimeOutFail() {
 	args := make([]interface{}, 0)
 	query := `SELECT pg_sleep(5)`
 	err := s.DB.WithTransaction(ctx, func(ctxSpan context.Context, tx *sql.Tx) error {
-		_, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
-		//suki.Info("WithTransaction",
-		//	suki.Field("Affected", affected),
-		//)
+		affected, err := s.DB.TxExecContext(ctxSpan, tx, query, args...)
+		mimir.Info("WithTransaction",
+			mimir.Field("Affected", affected),
+		)
 		return err
 	})
 	assert.Error(t, err)
@@ -318,14 +319,14 @@ func NewPoolPG(c ConnectionSuite) (err error) {
 		return fmt.Errorf("check connection %v", errPool.Error())
 	}
 
-	//tracer, closeTracer, err := suki.Tracer("store_test", "1.3.0", suki.With())
-	//if err != nil {
-	//	suki.Errorf("tracing is disconnected: %s", err)
-	//}
+	tracer, closeTracer, err := mimir.Tracer("store_test", "1.3.0", mimir.With())
+	if err != nil {
+		mimir.Errorf("tracing is disconnected: %s", err)
+	}
 
-	//c.SetCloseTracer(closeTracer)
+	c.SetCloseTracer(closeTracer)
 
-	//opentracing.SetGlobalTracer(tracer)
+	opentracing.SetGlobalTracer(tracer)
 
 	c.SetContext(context.Background())
 
