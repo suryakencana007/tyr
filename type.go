@@ -134,9 +134,8 @@ func (nt NullTime) MarshalJSON() ([]byte, error) {
 	if !nt.Valid {
 		return []byte("null"), nil
 	}
-	val := fmt.Sprintf("%s", nt.Time.Format(time.RFC3339))
-	fmt.Printf(">>>>> log tyr %s\n", val)
-	return []byte(fmt.Sprintf("%s", val)), nil
+	val := fmt.Sprintf("\"%s\"", nt.Time.Format(time.RFC3339))
+	return []byte(val), nil
 }
 
 // UnmarshalJSON for NullString
